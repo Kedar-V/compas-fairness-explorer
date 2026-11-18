@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>COMPAS Fairness Explorer</title>
+<style>
+  :root {
+    --bg: #fafaf7; --card: #ffffff; --ink: #1d2327; --muted: #5d6870; --line: #dfe3e6;
+    --a: #2a6fdb; --b: #d9602b; --good: #1f8a4c; --bad: #c0392b; --shade: rgba(192,57,43,.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14181b; --card: #1d2327; --ink: #e8ecee; --muted: #9aa6ad; --line: #333c42;
+      --a: #6aa5ff; --b: #ff9a68; --good: #4cc27f; --bad: #ff7b6b; --shade: rgba(255,123,107,.22); }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.7rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 0 0 8px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+  label { display: block; font-size: .92rem; margin: 10px 0 2px; }
+  label b { font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; }
+  .modes label { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0; cursor: pointer; }
+  .modes small { color: var(--muted); display: block; }
+  .A { color: var(--a); } .B { color: var(--b); }
+  svg { width: 100%; height: auto; display: block; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); font-size: .93rem; }
+  th { font-weight: 600; }
+  td.gap-ok { color: var(--good); font-weight: 600; }
+  td.gap-bad { color: var(--bad); font-weight: 600; }
+  .verdict { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  @media (max-width: 720px) { .verdict { grid-template-columns: 1fr; } }
+  .pill { border-radius: 8px; padding: 10px 12px; border: 1px solid var(--line); font-size: .93rem; }
+  .pill.ok { border-color: var(--good); } .pill.no { border-color: var(--bad); }
+  .pill strong { display: block; }
+  .cm { display: grid; grid-template-columns: auto 1fr 1fr; gap: 4px; font-size: .85rem; text-align: center; margin-top: 8px; }
+  .cm div { padding: 6px 4px; border-radius: 4px; background: var(--bg); font-variant-numeric: tabular-nums; }
+  .cm .h { background: none; color: var(--muted); }
+  .cm .fp { outline: 2px solid var(--bad); } .cm .fn { outline: 2px dashed var(--muted); }
+  details { margin-top: 8px; } summary { cursor: pointer; font-weight: 600; }
+  ul { padding-left: 20px; margin: 6px 0; }
+  .note { color: var(--muted); font-size: .88rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Can a risk score be fair to everyone at once?</h1>
+  <p class="sub">An interactive take on the COMPAS debate (ProPublica vs. Northpointe) for IDS 704, Week 6. Everything is synthetic and runs in your browser.</p>
+
+  <div class="card">
+    <h2>The setup</h2>
+    <p>Imagine a risk tool that gives every defendant a score from 0 to 1. I built it to be <b>perfectly calibrated</b>: among people who score 0.7, exactly 70% are re-arrested, in <i>both</i> groups. That is Northpointe's definition of fair. The groups differ only in their overall re-arrest rate (the base rate). Then a judge flags everyone above a threshold as "high risk."</p>
+    <p class="note">Base rates in the real COMPAS data were roughly 39% (white) vs 51% (Black) re-arrest within two years, which are the defaults below. Group labels are generic so the point isn't tied to any one dataset. Note that "re-arrest" is itself shaped by policing patterns, a caveat I come back to at the bottom.</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>1. Set the groups</h2>
+      <label><span class="A"><b>Group A</b></span> base rate: <b id="pAv">39%</b></label>
+      <input id="pA" type="range" min="10" max="80" value="39">
+      <label><span class="B"><b>Group B</b></span> base rate: <b id="pBv">51%</b></label>
+      <input id="pB" type="range" min="10" max="80" value="51">
+      <label>Score spread (how well the score separates people): <b id="kv">5</b></label>
+      <input id="k" type="range" min="2" max="30" value="5">
+      <p class="note">Low = most people get middling scores. High = scores are more decisive (and the tool is more informative).</p>
+    </div>
+    <div class="card">
+      <h2>2. Choose how to set the cutoff</h2>
+      <div class="modes">
+        <label><input type="radio" name="mode" value="same" checked><span><b>Same threshold for everyone</b><small>Calibrated, and the same rule applied to all.</small></span></label>
+        <label><input type="radio" name="mode" value="fpr"><span><b>Equalize false positive rates</b><small>Adjust Group B's threshold until its innocent-but-flagged rate matches Group A (ProPublica's concern).</small></span></label>
+        <label><input type="radio" name="mode" value="ppv"><span><b>Equalize precision (PPV)</b><small>Adjust Group B's threshold until "flagged high risk" means the same re-arrest odds in both groups.</small></span></label>
+      </div>
+      <label>Group A threshold: <b id="tv">0.50</b></label>
+      <input id="t" type="range" min="5" max="95" value="50">
+      <p class="note" id="tBnote"></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Score distributions and who gets flagged</h2>
+    <svg id="chart" viewBox="0 0 900 260" role="img" aria-label="Score distributions for both groups with threshold lines"></svg>
+    <p class="note">Solid line is Group A, dashed is Group B. Shaded area is "flagged high risk."</p>
+  </div>
+
+  <div class="card">
+    <h2>What happens to 1,000 people in each group</h2>
+    <div class="grid2">
+      <div><b class="A">Group A</b> <span class="note" id="thrA"></span><div class="cm" id="cmA"></div></div>
+      <div><b class="B">Group B</b> <span class="note" id="thrB"></span><div class="cm" id="cmB"></div></div>
+    </div>
+    <table style="margin-top:14px">
+      <thead><tr><th>Measure</th><th class="A">Group A</th><th class="B">Group B</th><th>Gap</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+  <div class="card">
+    <h2>Why this matters</h2>
+    <ul>
+      <li><b>Both sides were using real data and both were right</b> about their own definition. ProPublica compared error rates (false positives). Northpointe compared calibration (precision). This page shows they pull against each other whenever base rates differ.</li>
+      <li><b>Try it:</b> pick "Equalize false positive rates," then look at precision. Then pick "Equalize precision" and look at false positives. Only if you set both base rates equal (or make scores perfectly decisive with a very high spread) do the gaps shrink together.</li>
+      <li><b>Choosing is a values decision, not a technical one.</b> A false positive could mean stricter supervision for someone who would not have been re-arrested. A false negative is a public-safety cost. Who decides which error to tolerate?</li>
+      <li><b>Different thresholds per group has its own fairness problem.</b> Equalizing errors this way means treating two defendants with the same score differently, which hits procedural and interpersonal fairness even as it improves distributive fairness.</li>
+      <li><b>The data itself is a caveat.</b> The label here is "re-arrested," which depends on where police patrol. If the label is biased, a "perfectly calibrated" score inherits that bias, so none of these knobs fix it.</li>
+    </ul>
+    <p class="note">Sources: Angwin et al., ProPublica (2016); Kleinberg, Mullainathan &amp; Raghavan (2016) and Chouldechova (2017) on the impossibility result. Model: scores ~ Beta(p·k, (1−p)·k), calibrated by construction.</p>
+  </div>
+</main>
+<script src="core.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const pct = x => Number.isNaN(x) ? "n/a" : (x * 100).toFixed(1) + "%";
+
+function cmHTML(c) {
+  const f = x => Math.round(x);
+  return `<div class="h"></div><div class="h">Not re-arrested</div><div class="h">Re-arrested</div>
+    <div class="h">Flagged high</div><div class="fp">${f(c.FP)}<br>false positive</div><div>${f(c.TP)}<br>true positive</div>
+    <div class="h">Flagged low</div><div>${f(c.TN)}<br>true negative</div><div class="fn">${f(c.FN)}<br>false negative</div>`;
+}
+
+function chart(dA, dB, tA, tB) {
+  const W = 900, H = 260, L = 30, R = 10, T = 10, Bt = 36;
+  const xs = s => L + s * (W - L - R);
+  // bin to 50 bars for smoother display
+  const bins = 50, per = GRID / bins;
+  const dens = d => { const o = []; for (let i = 0; i < bins; i++) { let v = 0; for (let j = 0; j < per; j++) v += d.w[i * per + j]; o.push(v); } return o; };
+  const a = dens(dA), b = dens(dB);
+  const max = Math.max(...a, ...b) * 1.1;
+  const ys = v => T + (1 - v / max) * (H - T - Bt);
+  const path = (arr, t, color, dash) => {
+    let line = "", area = "";
+    arr.forEach((v, i) => { const x = xs((i + 0.5) / bins); line += (i ? "L" : "M") + x + " " + ys(v); });
+    arr.forEach((v, i) => { const s = (i + 0.5) / bins; if (s >= t) area += (area ? "L" : `M${xs(s)} ${ys(0)}L`) + xs(s) + " " + ys(v); });
+    if (area) { const last = arr.length - 1; area += `L${xs((last + 0.5) / bins)} ${ys(0)}Z`; }
+    return `<path d="${area}" fill="${color}" opacity=".22"/><path d="${line}" fill="none" stroke="${color}" stroke-width="2.5" ${dash ? 'stroke-dasharray="7 5"' : ""}/>`;
+  };
+  let svg = `<line x1="${L}" x2="${W - R}" y1="${ys(0)}" y2="${ys(0)}" stroke="var(--line)"/>`;
+  for (let i = 0; i <= 10; i++) { const s = i / 10; svg += `<text x="${xs(s)}" y="${H - 18}" font-size="12" fill="var(--muted)" text-anchor="middle">${s.toFixed(1)}</text>`; }
+  svg += `<text x="${W / 2}" y="${H - 2}" font-size="12" fill="var(--muted)" text-anchor="middle">risk score</text>`;
+  svg += path(a, tA, "var(--a)", false) + path(b, tB, "var(--b)", true);
+  svg += `<line x1="${xs(tA)}" x2="${xs(tA)}" y1="${T}" y2="${ys(0)}" stroke="var(--a)" stroke-width="2"/>`;
+  svg += `<line x1="${xs(tB)}" x2="${xs(tB)}" y1="${T}" y2="${ys(0)}" stroke="var(--b)" stroke-width="2" stroke-dasharray="4 3"/>`;
+  $("chart").innerHTML = svg;
+}
+
+function update() {
+  const pA = +$("pA").value / 100, pB = +$("pB").value / 100, k = +$("k").value;
+  const tA = +$("t").value / 100;
+  const mode = document.querySelector("input[name=mode]:checked").value;
+  $("pAv").textContent = Math.round(pA * 100) + "%"; $("pBv").textContent = Math.round(pB * 100) + "%";
+  $("kv").textContent = k; $("tv").textContent = tA.toFixed(2);
+
+  const dA = scoreDist(pA, k), dB = scoreDist(pB, k);
+  const mA = metrics(confusion(dA, tA));
+  let tB = tA;
+  if (mode === "fpr") tB = thresholdFor(dB, "fpr", mA.fpr);
+  if (mode === "ppv") tB = thresholdFor(dB, "ppv", mA.ppv);
+  const cA = confusion(dA, tA), cB = confusion(dB, tB);
+  const m1 = metrics(cA), m2 = metrics(cB);
+
+  $("tBnote").textContent = mode === "same" ? "Group B uses the same threshold."
+    : `Group B's threshold was moved to ${tB.toFixed(2)} to match Group A.`;
+  $("thrA").textContent = `(threshold ${tA.toFixed(2)})`; $("thrB").textContent = `(threshold ${tB.toFixed(2)})`;
+  $("cmA").innerHTML = cmHTML(cA); $("cmB").innerHTML = cmHTML(cB);
+  chart(dA, dB, tA, tB);
+
+  const rows = [
+    ["False positive rate (not re-arrested, flagged high)", "fpr"],
+    ["False negative rate (re-arrested, flagged low)", "fnr"],
+    ["Precision / PPV (flagged high who are re-arrested)", "ppv"],
+    ["Share flagged high risk", "flagged"],
+  ];
+  $("rows").innerHTML = rows.map(([label, key]) => {
+    const g = m2[key] - m1[key];
+    const ok = Math.abs(g) < 0.01;
+    return `<tr><td>${label}</td><td>${pct(m1[key])}</td><td>${pct(m2[key])}</td>
+      <td class="${ok ? "gap-ok" : "gap-bad"}">${ok ? "equal" : (g > 0 ? "+" : "") + (g * 100).toFixed(1) + " pts"}</td></tr>`;
+  }).join("");
+
+  const errEq = Math.abs(m2.fpr - m1.fpr) < 0.01 && Math.abs(m2.fnr - m1.fnr) < 0.01;
+  const calEq = Math.abs(m2.ppv - m1.ppv) < 0.01;
+  $("verdict").innerHTML = `
+    <div class="pill ${errEq ? "ok" : "no"}"><strong>${errEq ? "✓" : "✗"} Equal error rates (ProPublica's test)</strong>
+      ${errEq ? "Both groups face the same false positive and false negative rates." : "The groups face different false positive and/or false negative rates."}</div>
+    <div class="pill ${calEq ? "ok" : "no"}"><strong>${calEq ? "✓" : "✗"} Equal precision (Northpointe's test)</strong>
+      ${calEq ? "A \"high risk\" flag means the same thing in both groups." : "A \"high risk\" flag predicts re-arrest differently in each group."}</div>`;
+}
+
+document.querySelectorAll("input").forEach(el => el.addEventListener("input", update));
+update();
+</script>
+</body>
+</html>
