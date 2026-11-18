@@ -52,42 +52,42 @@
 <body>
 <main>
   <h1>Can a risk score be fair to everyone at once?</h1>
-  <p class="sub">An interactive take on the COMPAS debate (ProPublica vs. Northpointe) for IDS 704, Week 6. Everything is synthetic and runs in your browser.</p>
+  <p class="sub">An interactive look at the COMPAS debate (ProPublica vs. Northpointe) for IDS 704, Week 6. All the data is made up, and everything runs in your browser.</p>
 
   <div class="card">
-    <h2>The setup</h2>
-    <p>Imagine a risk tool that gives every defendant a score from 0 to 1. I built it to be <b>perfectly calibrated</b>: among people who score 0.7, exactly 70% are re-arrested, in <i>both</i> groups. That is Northpointe's definition of fair. The groups differ only in their overall re-arrest rate (the base rate). Then a judge flags everyone above a threshold as "high risk."</p>
-    <p class="note">Base rates in the real COMPAS data were roughly 39% (white) vs 51% (Black) re-arrest within two years, which are the defaults below. Group labels are generic so the point isn't tied to any one dataset. Note that "re-arrest" is itself shaped by policing patterns, a caveat I come back to at the bottom.</p>
+    <h2>How this works</h2>
+    <p>Imagine a tool that gives each defendant a risk score from 0 to 1. I built it so the scores mean the same thing for everyone: of the people who score 0.7, about 70% are re-arrested, in both groups. That was Northpointe's idea of fair. The two groups differ in one way only, the share of people who get re-arrested. A judge then labels everyone above a cutoff score as "high risk."</p>
+    <p class="note">In the real COMPAS data, roughly 39% of white defendants and 51% of Black defendants were re-arrested within two years. Those are the starting numbers below. I call the groups A and B so the idea isn't tied to one dataset. One caveat: being re-arrested depends partly on where police patrol, and I come back to that at the bottom.</p>
   </div>
 
   <div class="grid2">
     <div class="card">
-      <h2>1. Set the groups</h2>
-      <label><span class="A"><b>Group A</b></span> base rate: <b id="pAv">39%</b></label>
+      <h2>1. Set up the two groups</h2>
+      <label><span class="A"><b>Group A</b></span>, share re-arrested: <b id="pAv">39%</b></label>
       <input id="pA" type="range" min="10" max="80" value="39">
-      <label><span class="B"><b>Group B</b></span> base rate: <b id="pBv">51%</b></label>
+      <label><span class="B"><b>Group B</b></span>, share re-arrested: <b id="pBv">51%</b></label>
       <input id="pB" type="range" min="10" max="80" value="51">
-      <label>Score spread (how well the score separates people): <b id="kv">5</b></label>
+      <label>Score spread (how clearly the score separates people): <b id="kv">5</b></label>
       <input id="k" type="range" min="2" max="30" value="5">
-      <p class="note">Low = most people get middling scores. High = scores are more decisive (and the tool is more informative).</p>
+      <p class="note">Low means most people get middling scores. High means scores are more decisive, so the tool tells people apart better.</p>
     </div>
     <div class="card">
       <h2>2. Choose how to set the cutoff</h2>
       <div class="modes">
-        <label><input type="radio" name="mode" value="same" checked><span><b>Same threshold for everyone</b><small>Calibrated, and the same rule applied to all.</small></span></label>
-        <label><input type="radio" name="mode" value="fpr"><span><b>Equalize false positive rates</b><small>Adjust Group B's threshold until its innocent-but-flagged rate matches Group A (ProPublica's concern).</small></span></label>
-        <label><input type="radio" name="mode" value="ppv"><span><b>Equalize precision (PPV)</b><small>Adjust Group B's threshold until "flagged high risk" means the same re-arrest odds in both groups.</small></span></label>
+        <label><input type="radio" name="mode" value="same" checked><span><b>Same cutoff for everyone</b><small>One rule for all, and the scores mean the same thing for everyone.</small></span></label>
+        <label><input type="radio" name="mode" value="fpr"><span><b>Even out wrongful flags</b><small>Move Group B's cutoff until the same share of people who were not re-arrested get flagged high risk in both groups. This was ProPublica's concern.</small></span></label>
+        <label><input type="radio" name="mode" value="ppv"><span><b>Even out how often a flag is right</b><small>Move Group B's cutoff until a "high risk" flag is right equally often in both groups.</small></span></label>
       </div>
-      <label>Group A threshold: <b id="tv">0.50</b></label>
+      <label>Group A cutoff: <b id="tv">0.50</b></label>
       <input id="t" type="range" min="5" max="95" value="50">
       <p class="note" id="tBnote"></p>
     </div>
   </div>
 
   <div class="card">
-    <h2>Score distributions and who gets flagged</h2>
-    <svg id="chart" viewBox="0 0 900 260" role="img" aria-label="Score distributions for both groups with threshold lines"></svg>
-    <p class="note">Solid line is Group A, dashed is Group B. Shaded area is "flagged high risk."</p>
+    <h2>Scores and who gets flagged</h2>
+    <svg id="chart" viewBox="0 0 900 260" role="img" aria-label="Score curves for both groups with cutoff lines"></svg>
+    <p class="note">The solid line is Group A and the dashed line is Group B. The shaded area is the people flagged high risk.</p>
   </div>
 
   <div class="card">
@@ -105,19 +105,19 @@
 
   <div class="card">
     <h2>My view</h2>
-    <p>The COMPAS disagreement is a problem because choosing a fairness metric is a values decision, and it usually gets made as if it were a technical one. Once base rates differ, a tool can't equalize false positive rates and precision at the same time, so someone has to decide which group absorbs which error. I think that decision belongs with judges and courts, the people who use the score and answer for what it does to a defendant. As a data scientist, that leaves me with a narrower job: show them the trade-off clearly. I would report error rates for each group, say which metric the tool satisfies, and say which one it gives up. I don't think I can quietly pick one and hand over a single risk number. Where my responsibility ends after that is something I'm still working out.</p>
+    <p>The COMPAS disagreement is a problem because deciding what counts as fair is a question of values, but it usually gets treated as a technical question. When the two groups have different re-arrest rates, a tool can't both wrongly flag the same share of people in each group and have its flags be right equally often. So someone has to decide which group takes which kind of mistake. I think that decision belongs with judges and courts, because they use the score and answer for what it does to a defendant. As a data scientist, that leaves me a smaller job: show them the trade-off clearly. I would report each group's mistake rates, say which kind of fairness the tool meets, and say which one it gives up. I don't think I can quietly pick one and hand over a single risk number. Where my responsibility ends after that is something I'm still working out.</p>
   </div>
 
   <div class="card">
     <h2>Why this matters</h2>
     <ul>
-      <li><b>Both sides were using real data and both were right</b> about their own definition. ProPublica compared error rates (false positives). Northpointe compared calibration (precision). This page shows they pull against each other whenever base rates differ.</li>
-      <li><b>Try it:</b> pick "Equalize false positive rates," then look at precision. Then pick "Equalize precision" and look at false positives. Only if you set both base rates equal (or make scores perfectly decisive with a very high spread) do the gaps shrink together.</li>
-      <li><b>Choosing is a values decision, not a technical one.</b> A false positive could mean stricter supervision for someone who would not have been re-arrested. A false negative is a public-safety cost. Who decides which error to tolerate?</li>
-      <li><b>Different thresholds per group has its own fairness problem.</b> Equalizing errors this way means treating two defendants with the same score differently, which hits procedural and interpersonal fairness even as it improves distributive fairness.</li>
-      <li><b>The data itself is a caveat.</b> The label here is "re-arrested," which depends on where police patrol. If the label is biased, a "perfectly calibrated" score inherits that bias, so none of these knobs fix it.</li>
+      <li>Both sides used real data, and each was right by its own definition. ProPublica compared how often each group was wrongly flagged. Northpointe compared how often a high-risk flag turned out to be right. This page shows the two pull against each other whenever the groups have different re-arrest rates.</li>
+      <li>Try it: pick "Even out wrongful flags" and look at how often a flag is right. Then pick "Even out how often a flag is right" and look at wrongful flags. The gaps only shrink together if both groups have the same re-arrest rate, or if the scores separate people almost perfectly (a very high spread).</li>
+      <li>Choosing is a values decision, not a technical one. A wrongful flag could mean tougher supervision for someone who would not have been re-arrested. A missed case is a public-safety cost. Who decides which mistake to accept?</li>
+      <li>Using a different cutoff for each group has its own fairness problem. It treats two defendants with the same score differently, which is unfair in how each person is treated and in the process, even though it evens out the mistakes.</li>
+      <li>The data is a caveat too. The label here is "re-arrested," which depends on where police patrol. If that label is biased, a score that is fair by its own measure inherits the bias, so none of these controls fix it.</li>
     </ul>
-    <p class="note">Sources: Angwin et al., ProPublica (2016); Kleinberg, Mullainathan &amp; Raghavan (2016) and Chouldechova (2017) on the impossibility result. Model: scores ~ Beta(p·k, (1−p)·k), calibrated by construction.</p>
+    <p class="note">Sources: Angwin et al., ProPublica (2016); Kleinberg, Mullainathan &amp; Raghavan (2016) and Chouldechova (2017) on why the two kinds of fairness can't both hold. Model: each group's scores follow a Beta curve (a flexible curve between 0 and 1), set up so the scores mean the same thing for everyone.</p>
   </div>
 </main>
 <script src="core.js"></script>
@@ -128,8 +128,8 @@ const pct = x => Number.isNaN(x) ? "n/a" : (x * 100).toFixed(1) + "%";
 function cmHTML(c) {
   const f = x => Math.round(x);
   return `<div class="h"></div><div class="h">Not re-arrested</div><div class="h">Re-arrested</div>
-    <div class="h">Flagged high</div><div class="fp">${f(c.FP)}<br>false positive</div><div>${f(c.TP)}<br>true positive</div>
-    <div class="h">Flagged low</div><div>${f(c.TN)}<br>true negative</div><div class="fn">${f(c.FN)}<br>false negative</div>`;
+    <div class="h">Flagged high</div><div class="fp">${f(c.FP)}<br>flagged by mistake</div><div>${f(c.TP)}<br>flagged correctly</div>
+    <div class="h">Flagged low</div><div>${f(c.TN)}<br>cleared correctly</div><div class="fn">${f(c.FN)}<br>missed</div>`;
 }
 
 function chart(dA, dB, tA, tB) {
@@ -172,32 +172,32 @@ function update() {
   const cA = confusion(dA, tA), cB = confusion(dB, tB);
   const m1 = metrics(cA), m2 = metrics(cB);
 
-  $("tBnote").textContent = mode === "same" ? "Group B uses the same threshold."
-    : `Group B's threshold was moved to ${tB.toFixed(2)} to match Group A.`;
-  $("thrA").textContent = `(threshold ${tA.toFixed(2)})`; $("thrB").textContent = `(threshold ${tB.toFixed(2)})`;
+  $("tBnote").textContent = mode === "same" ? "Group B uses the same cutoff."
+    : `Group B's cutoff was moved to ${tB.toFixed(2)} to match Group A.`;
+  $("thrA").textContent = `(cutoff ${tA.toFixed(2)})`; $("thrB").textContent = `(cutoff ${tB.toFixed(2)})`;
   $("cmA").innerHTML = cmHTML(cA); $("cmB").innerHTML = cmHTML(cB);
   chart(dA, dB, tA, tB);
 
   const rows = [
-    ["False positive rate (not re-arrested, flagged high)", "fpr"],
-    ["False negative rate (re-arrested, flagged low)", "fnr"],
-    ["Precision / PPV (flagged high who are re-arrested)", "ppv"],
-    ["Share flagged high risk", "flagged"],
+    ["Wrongly flagged: of people not re-arrested, the share flagged high risk", "fpr"],
+    ["Missed: of people re-arrested, the share flagged low risk", "fnr"],
+    ["Flag is right: of people flagged high risk, the share re-arrested", "ppv"],
+    ["Share of everyone flagged high risk", "flagged"],
   ];
   $("rows").innerHTML = rows.map(([label, key]) => {
     const g = m2[key] - m1[key];
     const ok = Math.abs(g) < 0.01;
     return `<tr><td>${label}</td><td>${pct(m1[key])}</td><td>${pct(m2[key])}</td>
-      <td class="${ok ? "gap-ok" : "gap-bad"}">${ok ? "equal" : (g > 0 ? "+" : "") + (g * 100).toFixed(1) + " pts"}</td></tr>`;
+      <td class="${ok ? "gap-ok" : "gap-bad"}">${ok ? "equal" : (g > 0 ? "+" : "") + (g * 100).toFixed(1) + " points"}</td></tr>`;
   }).join("");
 
   const errEq = Math.abs(m2.fpr - m1.fpr) < 0.01 && Math.abs(m2.fnr - m1.fnr) < 0.01;
   const calEq = Math.abs(m2.ppv - m1.ppv) < 0.01;
   $("verdict").innerHTML = `
-    <div class="pill ${errEq ? "ok" : "no"}"><strong>${errEq ? "✓" : "✗"} Equal error rates (ProPublica's test)</strong>
-      ${errEq ? "Both groups face the same false positive and false negative rates." : "The groups face different false positive and/or false negative rates."}</div>
-    <div class="pill ${calEq ? "ok" : "no"}"><strong>${calEq ? "✓" : "✗"} Equal precision (Northpointe's test)</strong>
-      ${calEq ? "A \"high risk\" flag means the same thing in both groups." : "A \"high risk\" flag predicts re-arrest differently in each group."}</div>`;
+    <div class="pill ${errEq ? "ok" : "no"}"><strong>${errEq ? "✓" : "✗"} Same mistake rates (ProPublica's test)</strong>
+      ${errEq ? `Both groups are wrongly flagged and missed at the same rates.` : `The two groups are wrongly flagged or missed at different rates.`}</div>
+    <div class="pill ${calEq ? "ok" : "no"}"><strong>${calEq ? "✓" : "✗"} A flag is right equally often (Northpointe's test)</strong>
+      ${calEq ? `A "high risk" flag is right equally often in both groups.` : `A "high risk" flag is right at different rates in the two groups.`}</div>`;
 }
 
 document.querySelectorAll("input").forEach(el => el.addEventListener("input", update));
